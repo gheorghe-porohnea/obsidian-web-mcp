@@ -134,7 +134,11 @@ mcp = FastMCP(
 
 # --- Register all tools ---
 
-from .tools.read import vault_read as _vault_read, vault_batch_read as _vault_batch_read
+from .tools.read import (
+    vault_read as _vault_read,
+    vault_batch_read as _vault_batch_read,
+    vault_read_image as _vault_read_image,
+)
 from .tools.write import (
     vault_append as _vault_append,
     vault_batch_frontmatter_update as _vault_batch_frontmatter_update,
@@ -210,6 +214,17 @@ def vault_batch_read(paths: list[str], include_content: bool = True) -> str:
     """Read multiple files at once."""
     inp = VaultBatchReadInput(paths=paths, include_content=include_content)
     return run_audited("vault_batch_read", lambda: _vault_batch_read(inp.paths, inp.include_content))
+
+
+@mcp.tool(
+    name="vault_read_image",
+    description="Read an image file (.jpg/.jpeg/.png/.gif/.webp) from the Obsidian vault and return it as inline MCP image content.",
+    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+)
+def vault_read_image(path: str):
+    """Read an image file from the vault as MCP ImageContent."""
+    inp = VaultReadInput(path=path)
+    return run_audited("vault_read_image", lambda: _vault_read_image(inp.path), path=inp.path)
 
 
 @mcp.tool(

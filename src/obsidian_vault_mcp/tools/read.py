@@ -3,9 +3,10 @@
 import logging
 
 import frontmatter
+from mcp.server.fastmcp import Image
 
 from ..serialization import dumps
-from ..vault import resolve_vault_path, read_file
+from ..vault import resolve_vault_path, read_file, read_file_binary
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,21 @@ def vault_read(path: str) -> str:
         return dumps({"error": f"File not found: {path}", "path": path})
     except Exception as e:
         logger.error(f"vault_read error for {path}: {e}")
+        return dumps({"error": str(e), "path": path})
+
+
+def vault_read_image(path: str) -> Image | str:
+    """Read an image file from the vault and return it as MCP ImageContent."""
+    try:
+        data, mime_type, _ = read_file_binary(path)
+        fmt = mime_type.split("/")[1]
+        return Image(data=data, format=fmt)
+    except ValueError as e:
+        return dumps({"error": str(e), "path": path})
+    except FileNotFoundError:
+        return dumps({"error": f"File not found: {path}", "path": path})
+    except Exception as e:
+        logger.error(f"vault_read_image error for {path}: {e}")
         return dumps({"error": str(e), "path": path})
 
 
