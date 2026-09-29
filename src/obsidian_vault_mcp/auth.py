@@ -1,6 +1,7 @@
 """Bearer token authentication middleware for the vault MCP server."""
 
 import hmac
+import logging
 import re
 import uuid
 
@@ -11,6 +12,8 @@ from starlette.responses import JSONResponse
 from . import config
 from .config import VAULT_MCP_TOKEN
 from .context import reset_request_context, set_request_context
+
+logger = logging.getLogger(__name__)
 
 # Paths that don't require bearer auth (OAuth flow + health)
 _AUTH_EXEMPT_PATHS = {
@@ -64,6 +67,21 @@ def _www_authenticate(request: Request, error: str) -> str:
     return f'Bearer realm="mcp", resource_metadata="{resource_metadata}", error="{error}"'
 
 
+def _log_rejection(request: Request, path: str, reason: str) -> None:
+    """Record a rejected request so brute-force attempts are visible in the server log.
+
+    Logs the reason, path and client address, never the Authorization header or token.
+    The path is client-controlled, so it is logged with %r: an encoded newline in it
+    cannot forge a log line.
+    """
+    logger.warning(
+        "Auth rejected: %s path=%r ip=%s",
+        reason,
+        path,
+        request.client.host if request.client else "unknown",
+    )
+
+
 class BearerAuthMiddleware(BaseHTTPMiddleware):
     """Validates Bearer tokens on all requests except OAuth and health endpoints."""
 
@@ -90,6 +108,7 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
 
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
+            _log_rejection(request, path, "missing/malformed header")
             return JSONResponse(
                 {"error": "Missing or malformed Authorization header"},
                 status_code=401,
@@ -99,6 +118,7 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         token = auth_header[7:]
         # Constant-time compare: avoid leaking the token via response timing (#2).
         if not hmac.compare_digest(token, VAULT_MCP_TOKEN):
+            _log_rejection(request, path, "invalid token")
             return JSONResponse(
                 {"error": "Invalid token"},
                 status_code=401,
