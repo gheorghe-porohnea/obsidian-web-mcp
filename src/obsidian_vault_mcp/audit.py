@@ -37,6 +37,7 @@ MUTATION_OPERATIONS = {
     "vault_write",
     "vault_write_binary",
     "vault_edit",
+    "vault_edit_section",
     "vault_append",
     "vault_batch_frontmatter_update",
     "vault_move",
@@ -51,6 +52,7 @@ MUTATION_OPERATIONS = {
 READ_OPERATIONS = {
     "vault_read",
     "vault_batch_read",
+    "vault_read_image",
     "vault_search",
     "vault_search_frontmatter",
     "vault_list",

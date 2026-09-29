@@ -117,6 +117,45 @@ def read_file(relative_path: str, *, extract: bool = False) -> tuple[str, dict]:
     return content, metadata
 
 
+_IMAGE_MIME_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
+
+
+def read_file_binary(relative_path: str) -> tuple[bytes, str, dict]:
+    """Read an image file and return (bytes, mime_type, metadata).
+
+    Only files with a known image extension are allowed, and the file must pass the
+    same read guards as read_file (in-vault path, no hardlinks). Files larger than
+    MAX_BINARY_SIZE are refused before they are read into memory.
+    """
+    suffix = Path(relative_path).suffix.lower()
+    if suffix not in _IMAGE_MIME_TYPES:
+        raise ValueError(f"Unsupported file type '{suffix}'; supported: {', '.join(_IMAGE_MIME_TYPES)}")
+
+    path = resolve_vault_read_path(relative_path)
+
+    stat = path.stat()
+    if stat.st_size > config.MAX_BINARY_SIZE:
+        raise ValueError(
+            f"Image size {stat.st_size} bytes exceeds limit of {config.MAX_BINARY_SIZE} bytes"
+        )
+    data = path.read_bytes()
+
+    metadata = {
+        "size": stat.st_size,
+        "modified": _iso_timestamp(stat.st_mtime),
+        "created": _iso_timestamp(stat.st_birthtime if hasattr(stat, "st_birthtime") else stat.st_ctime),
+        "mime_type": _IMAGE_MIME_TYPES[suffix],
+    }
+
+    return data, _IMAGE_MIME_TYPES[suffix], metadata
+
+
 def write_file_atomic(
     relative_path: str, content: str, create_dirs: bool = True, overwrite: bool = True
 ) -> tuple[bool, int]:

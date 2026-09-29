@@ -236,7 +236,7 @@ def test_snapshot_path_stays_in_vault(vault_dir):
 
 @pytest.mark.parametrize("name", [
     "vault_write", "vault_edit", "vault_append", "vault_move", "vault_delete",
-    "vault_read", "vault_search", "vault_canvas_add_node", "vault_daily_note_append",
+    "vault_read", "vault_read_image", "vault_search", "vault_canvas_add_node", "vault_daily_note_append",
     "vault_write_binary",
 ])
 def test_audited_tools_still_registered(vault_dir, name):
