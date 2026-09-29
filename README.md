@@ -1,5 +1,21 @@
 # obsidian-web-mcp
 
+> **This is a fork of [jimprosser/obsidian-web-mcp](https://github.com/jimprosser/obsidian-web-mcp)** by Jim Prosser and contributors, released under the MIT license. The architecture, security model and the bulk of the tools are theirs. Everything below the "What this fork adds" section is the upstream README, kept as-is so the setup instructions stay accurate.
+
+## What this fork adds
+
+Three small, self-contained changes on top of upstream, each on its own branch (`feat/*`) with its own tests, so they can be reviewed -- or upstreamed -- independently.
+
+| Change | Branch | What it does |
+|--------|--------|--------------|
+| **`vault_read_image`** | `feat/read-image` | Returns a `.jpg`/`.jpeg`/`.png`/`.gif`/`.webp` from the vault as inline MCP image content, so the model can actually *see* a scanned note, diagram or screenshot instead of just getting its path. Goes through the same read boundary as `vault_read` (no traversal, dotfiles or hardlinks); files over the 10 MB binary cap are refused before being read into memory. |
+| **Heading-scoped edits** | `feat/heading-edits` | `vault_edit_section` and `vault_append(heading=...)`. Notes repeat text under different headings (task lists, `Status:` lines, dated entries), which makes `vault_edit`'s whole-file uniqueness rule force long anchors or full rewrites. Here each `old_text` only has to be unique within one heading's section, and appends can target the end of a section. Missing, duplicate or non-ATX headings are errors, never a guess. |
+| **Auth-rejection logging** | `feat/auth-rejection-logging` | One `WARNING` per rejected bearer-auth request: the reason, the path and the client address. The token and `Authorization` header are never logged, and the client-controlled path is logged with `%r` so an encoded newline cannot forge a second log line. Gives an operator a way to notice token probing without turning on the audit log. |
+
+The test suite covers all three (the full suite passes: `pytest tests/`).
+
+## Upstream README
+
 A secure, remote-accessible MCP server that gives LLMs read/write access to your Obsidian vault from anywhere -- your desktop, your phone, a hotel Wi-Fi network. Unlike local-only Obsidian MCP servers, this one runs over HTTPS with real authentication, so Claude (or any MCP client) can reach your vault whether you're at your desk or not.
 
 It reads and writes markdown files on disk, parses YAML frontmatter, maintains an in-memory frontmatter index for fast queries, and handles full-text search -- all behind OAuth 2.0 authentication and a Cloudflare Tunnel that never exposes your machine directly to the internet.
