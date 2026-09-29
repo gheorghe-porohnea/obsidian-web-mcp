@@ -47,6 +47,48 @@ def test_valid_token_passes_through(client):
     assert "WWW-Authenticate" not in r.headers
 
 
+# --- Rejections are logged (path + IP) so brute-force attempts show up in the server log ------
+
+def _rejections(caplog):
+    return [r for r in caplog.records if r.name == auth_module.logger.name and "Auth rejected" in r.getMessage()]
+
+
+def test_missing_header_rejection_is_logged(client, caplog):
+    with caplog.at_level("WARNING", logger=auth_module.logger.name):
+        assert client.get("/").status_code == 401
+    (record,) = _rejections(caplog)
+    assert record.levelname == "WARNING"
+    message = record.getMessage()
+    assert "missing/malformed header" in message
+    assert "path='/'" in message
+    assert "ip=testclient" in message
+
+
+def test_invalid_token_rejection_is_logged_without_the_token(client, caplog):
+    with caplog.at_level("WARNING", logger=auth_module.logger.name):
+        client.get("/", headers={"Authorization": "Bearer guessed-token-123"})
+    (record,) = _rejections(caplog)
+    assert "invalid token" in record.getMessage()
+    assert "guessed-token-123" not in caplog.text
+    assert "secret-token" not in caplog.text
+
+
+def test_a_valid_token_logs_no_rejection(client, caplog):
+    with caplog.at_level("WARNING", logger=auth_module.logger.name):
+        assert client.get("/", headers={"Authorization": "Bearer secret-token"}).status_code == 200
+    assert _rejections(caplog) == []
+
+
+def test_an_encoded_newline_in_the_path_cannot_forge_a_log_line(monkeypatch, caplog):
+    monkeypatch.setattr(auth_module, "VAULT_MCP_TOKEN", "secret-token")
+    app = Starlette(routes=[Route("/{rest:path}", lambda request: PlainTextResponse("ok"))])
+    app.add_middleware(auth_module.BearerAuthMiddleware)
+    with caplog.at_level("WARNING", logger=auth_module.logger.name):
+        TestClient(app).get("/x%0AAuth rejected: forged")
+    (record,) = _rejections(caplog)
+    assert "\n" not in record.getMessage()
+
+
 # --- The exemption check reads the decoded ASGI path, not request.url.path ---------------
 #
 # request.url.path is parsed back out of a URL string, so an encoded "?" or "#" in the
